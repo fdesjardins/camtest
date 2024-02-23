@@ -1,0 +1,42 @@
+FROM ubuntu:23.10
+
+RUN apt-get update
+
+RUN apt-get -y install libpng-dev libjpeg-dev libtiff5-dev \
+    libepoxy-dev \
+    python3-pip git python3-jinja2 \
+    libboost-dev \
+    libgnutls28-dev openssl libtiff5-dev pybind11-dev \
+    qtbase5-dev libqt5core5a libqt5gui5 libqt5widgets5 \
+    meson cmake \
+    python3-yaml python3-ply \
+    libglib2.0-dev libgstreamer-plugins-base1.0-dev
+
+RUN mkdir -p /build/{libcamera,rpicam-apps}
+
+RUN git clone https://github.com/raspberrypi/libcamera.git /build/libcamera
+WORKDIR /build/libcamera
+RUN meson setup build \
+    --buildtype=release \
+    -Dpipelines=rpi/vc4,rpi/pisp \
+    -Dipas=rpi/vc4,rpi/pisp \
+    -Dv4l2=true \
+    -Dgstreamer=enabled \
+    -Dtest=false \
+    -Dlc-compliance=disabled \
+    -Dcam=disabled \
+    -Dqcam=disabled \
+    -Ddocumentation=disabled \
+    -Dpycamera=enabled
+
+RUN ninja -C build && ninja -C build install
+
+RUN apt-get -y install libboost-program-options-dev libdrm-dev libexif-dev \
+    meson ninja-build
+
+RUN git clone https://github.com/raspberrypi/rpicam-apps.git /build/rpicam-apps
+WORKDIR /build/rpicam-apps
+RUN meson setup build -Denable_libav=false -Denable_drm=true -Denable_egl=false -Denable_qt=false -Denable_opencv=false -Denable_tflite=false && \
+    meson compile -C build && \
+    meson install -C build && \
+    ldconfig
